@@ -1,0 +1,5 @@
+{
+  "workbench.experimental.modernUIUppercaseViewHeaders": true,
+  "workbench.editor.preferHistoryBasedLanguageDetection": true,
+  "powershell.integratedConsole.useLegacyReadLine": true
+}

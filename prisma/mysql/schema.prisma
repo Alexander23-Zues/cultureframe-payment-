@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  displayName        String   @default("CultureFrame Administrator")
+  passwordHash       String
+  role               String   @default("SUPER_ADMIN")
+  mustChangePassword Boolean  @default(true)
+  failedLogins       Int      @default(0)
+  lockedUntil        DateTime?
+  resetTokenHash     String?  @unique
+  resetExpiresAt     DateTime?
+  createdAt          DateTime @default(now())
+  sessions           AdminSession[]
+  @@map("admin_users")
+}
+model AdminSession {
+  id        String   @id
+  data      String @db.LongText
+  expiresAt DateTime
+  adminId   String?
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+model Customer {
+  id           String @id @default(cuid())
+  externalId   String @unique
+  name         String
+  email        String
+  phone        String @default("")
+  address      String @default("") @db.VarChar(2000)
+  source       String @default("ADMIN_IMPORT")
+  createdAt    DateTime @default(now())
+  orders       Order[]
+  @@map("cultureframe_customers")
+}
+model Seller {
+  id           String @id @default(cuid())
+  externalId   String @unique
+  name         String
+  email        String
+  craft        String
+  location     String @default("Mansalay, Oriental Mindoro")
+  source       String @default("ADMIN_IMPORT")
+  createdAt    DateTime @default(now())
+  orders       Order[]
+  earnings     SellerEarning[]
+  payouts      SellerPayout[]
+  ledger       LedgerEntry[]
+  @@map("cultureframe_sellers")
+}
+model Order {
+  id             String @id @default(cuid())
+  externalId     String @unique
+  customerId     String
+  sellerId       String
+  product        String
+  quantity       Int @default(1)
+  amountCents    Int
+  currency       String @default("PHP")
+  source         String @default("ADMIN_IMPORT")
+  paymentStatus  String @default("UNPAID")
+  createdAt      DateTime @default(now())
+  customer       Customer @relation(fields: [customerId], references: [id])
+  seller         Seller @relation(fields: [sellerId], references: [id])
+  payments       Payment[]
+  @@index([customerId])
+  @@index([sellerId])
+  @@map("cultureframe_orders")
+}
+model PaymentMethod {
+  id       String @id
+  name     String
+  enabled  Boolean @default(true)
+  kind     String @default("MANUAL")
+  payments Payment[]
+  @@map("payment_methods")
+}
+model Payment {
+  id                String @id @default(cuid())
+  reference         String @unique
+  orderId           String
+  methodId          String
+  amountCents       Int
+  refundedCents     Int @default(0)
+  status            String @default("PENDING")
+  provider          String @default("MANUAL")
+  providerReference String? @unique
+  evidence          String @default("") @db.VarChar(2000)
+  idempotencyKey    String @unique
+  commissionBps     Int @default(500)
+  feeCents          Int @default(0)
+  verifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  version           Int @default(0)
+  order             Order @relation(fields: [orderId], references: [id])
+  method            PaymentMethod @relation(fields: [methodId], references: [id])
+  attempts          PaymentAttempt[]
+  events            PaymentEvent[]
+  refunds           Refund[]
+  receipt           Receipt?
+  earning           SellerEarning?
+  ledger            LedgerEntry[]
+  @@index([status, createdAt])
+  @@index([orderId])
+  @@map("payment_transactions")
+}
+model PaymentAttempt {
+  id        String @id @default(cuid())
+  paymentId String
+  status    String
+  note      String @db.VarChar(2000)
+  createdAt DateTime @default(now())
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  @@map("payment_attempts")
+}
+model PaymentEvent {
+  id        String @id @default(cuid())
+  paymentId String
+  type      String
+  source    String
+  reference String
+  createdAt DateTime @default(now())
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  @@map("payment_events")
+}
+model Refund {
+  id             String @id @default(cuid())
+  reference      String @unique
+  paymentId      String
+  amountCents    Int
+  reason         String @db.VarChar(2000)
+  decisionReason String @default("") @db.VarChar(2000)
+  status         String @default("REQUESTED")
+  idempotencyKey String @unique
+  version        Int @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payment        Payment @relation(fields: [paymentId], references: [id])
+  transactions   RefundTransaction[]
+  @@index([status, createdAt])
+  @@map("refund_requests")
+}
+model RefundTransaction {
+  id                String @id @default(cuid())
+  refundId          String
+  providerReference String @unique
+  amountCents       Int
+  status            String
+  createdAt         DateTime @default(now())
+  refund            Refund @relation(fields: [refundId], references: [id])
+  @@map("refund_transactions")
+}
+model Receipt {
+  id        String @id @default(cuid())
+  number    String @unique
+  paymentId String @unique
+  createdAt DateTime @default(now())
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  @@map("receipts")
+}
+model SellerEarning {
+  id              String @id @default(cuid())
+  sellerId        String
+  paymentId       String @unique
+  grossCents      Int
+  commissionCents Int
+  feeCents        Int
+  refundCents     Int @default(0)
+  netCents        Int
+  createdAt       DateTime @default(now())
+  seller          Seller @relation(fields: [sellerId], references: [id])
+  payment         Payment @relation(fields: [paymentId], references: [id])
+  @@map("seller_earnings")
+}
+model SellerPayout {
+  id                String @id @default(cuid())
+  reference         String @unique
+  sellerId          String
+  amountCents       Int
+  status            String @default("REQUESTED")
+  destination       String @db.VarChar(2000)
+  note              String @default("") @db.VarChar(2000)
+  providerReference String? @unique
+  idempotencyKey    String @unique
+  version           Int @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  seller            Seller @relation(fields: [sellerId], references: [id])
+  ledger            LedgerEntry[]
+  @@index([sellerId, status])
+  @@map("seller_payouts")
+}
+model LedgerEntry {
+  id           String @id @default(cuid())
+  sellerId     String
+  paymentId    String?
+  payoutId     String?
+  kind         String
+  amountCents  Int
+  reference    String @unique
+  description  String @db.VarChar(2000)
+  createdAt    DateTime @default(now())
+  seller       Seller @relation(fields: [sellerId], references: [id])
+  payment      Payment? @relation(fields: [paymentId], references: [id])
+  payout       SellerPayout? @relation(fields: [payoutId], references: [id])
+  @@index([sellerId, createdAt])
+  @@map("financial_ledger_entries")
+}
+model Notification {
+  id        String @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  @@map("notifications")
+}
+model AuditLog {
+  id        String @id @default(cuid())
+  adminId   String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String @db.LongText
+  ip        String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+model IntegrationLog {
+  id           String @id @default(cuid())
+  direction    String
+  operation    String
+  status       String
+  externalId   String?
+  payload      String @db.LongText
+  error        String @default("") @db.VarChar(2000)
+  attempts     Int @default(0)
+  nextRetryAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([status, nextRetryAt])
+  @@map("integration_sync_logs")
+}
+model WebhookEvent {
+  id        String @id
+  provider  String
+  payload   String @db.LongText
+  status    String
+  createdAt DateTime @default(now())
+  @@map("webhook_events")
+}
+model SystemSetting {
+  key       String @id
+  value     String @db.LongText
+  updatedAt DateTime @updatedAt
+  @@map("system_settings")
+}

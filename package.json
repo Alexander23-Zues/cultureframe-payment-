@@ -1,0 +1,56 @@
+{
+  "name": "cultureframe-payments",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:setup": "node scripts/ensure-sqlite.mjs && prisma migrate deploy --schema prisma/schema.prisma && node server/seed.js",
+    "db:mysql:generate": "prisma generate --schema prisma/mysql/schema.prisma",
+    "db:mysql:deploy": "prisma migrate deploy --schema prisma/mysql/schema.prisma && node server/seed.js",
+    "db:seed": "node server/seed.js",
+    "test": "npm run test:ui && npm run test:dev && npm run test:api",
+    "test:ui": "vitest run --configLoader runner",
+    "test:api": "node scripts/test.mjs",
+    "test:dev": "node --test tests/dev.test.js"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "axios": "^1.12.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "express-session": "^1.18.2",
+    "framer-motion": "^12.23.0",
+    "helmet": "^8.1.0",
+    "lucide-react": "^0.468.0",
+    "nodemailer": "^7.0.0",
+    "pdfkit": "^0.17.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.9.0",
+    "recharts": "^3.2.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.0",
+    "jsdom": "^30.1.2",
+    "prisma": "6.19.0",
+    "supertest": "^7.1.4",
+    "tailwindcss": "^4.1.0",
+    "vite": "^7.1.0",
+    "vitest": "^5.0.4"
+  }
+}

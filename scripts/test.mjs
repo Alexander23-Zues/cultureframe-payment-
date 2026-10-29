@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+const filename = `test-${crypto.randomUUID()}.db`;
+fs.mkdirSync('.local', { recursive: true });
+fs.writeFileSync(`.local/${filename}`, Buffer.alloc(0));
+const env = { ...process.env, DATABASE_URL: `file:../.local/${filename}`, NODE_ENV: 'test', SESSION_SECRET: crypto.randomBytes(48).toString('hex'), ADMIN_EMAIL: 'administrator@example.test', ADMIN_INITIAL_PASSWORD: 'InitialTestPassword2026!', INTEGRATION_MODE: 'simulator', APP_URL: 'http://localhost:5173', PAYMENT_WEBHOOK_SECRET: '', SMTP_HOST: '' };
+const migrate = spawnSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], { env, stdio: 'inherit' });
+if (migrate.status !== 0) process.exit(migrate.status || 1);
+const tests = spawnSync(process.execPath, ['--test', '--test-concurrency=1', 'tests/system.test.js'], { env, stdio: 'inherit' });
+console.log(`Isolated test database retained at .local/${filename} (development database unchanged).`);
+process.exit(tests.status ?? 1);
